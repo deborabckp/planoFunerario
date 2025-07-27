@@ -1,0 +1,130 @@
+[
+  {
+    "model": "funeraria.funerariastatus",
+    "pk": 1,
+    "fields": {
+      "status": "Ativo",
+      "descricao": "Status ativo para entidades em funcionamento normal"
+    }
+  },
+  {
+    "model": "funeraria.funerariastatus",
+    "pk": 2,
+    "fields": {
+      "status": "Inativo",
+      "descricao": "Status inativo para entidades desabilitadas"
+    }
+  },
+  {
+    "model": "funeraria.funerariastatus",
+    "pk": 3,
+    "fields": {
+      "status": "Pendente",
+      "descricao": "Status pendente para itens aguardando processamento"
+    }
+  },
+  {
+    "model": "funeraria.funerariastatus",
+    "pk": 4,
+    "fields": {
+      "status": "Pago",
+      "descricao": "Status para pagamentos confirmados"
+    }
+  },
+  {
+    "model": "funeraria.funerariastatus",
+    "pk": 5,
+    "fields": {
+      "status": "Cancelado",
+      "descricao": "Status para itens cancelados"
+    }
+  },
+  {
+    "model": "funeraria.dependentestatus",
+    "pk": 1,
+    "fields": {
+      "status": "Ativo",
+      "descricao": "Dependente ativo no plano"
+    }
+  },
+  {
+    "model": "funeraria.dependentestatus",
+    "pk": 2,
+    "fields": {
+      "status": "Inativo",
+      "descricao": "Dependente inativo no plano"
+    }
+  },
+  {
+    "model": "funeraria.dependentestatus",
+    "pk": 3,
+    "fields": {
+      "status": "Falecido",
+      "descricao": "Dependente faleceu"
+    }
+  },
+  {
+    "model": "funeraria.dependentestatus",
+    "pk": 4,
+    "fields": {
+      "status": "Suspenso",
+      "descricao": "Dependente com cobertura suspensa"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 1,
+    "fields": {
+      "descricao": "Velório Simples"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 2,
+    "fields": {
+      "descricao": "Velório Completo"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 3,
+    "fields": {
+      "descricao": "Cremação"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 4,
+    "fields": {
+      "descricao": "Sepultamento"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 5,
+    "fields": {
+      "descricao": "Traslado"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 6,
+    "fields": {
+      "descricao": "Embalsamento"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 7,
+    "fields": {
+      "descricao": "Ornamentação Floral"
+    }
+  },
+  {
+    "model": "funeraria.funerariatipos",
+    "pk": 8,
+    "fields": {
+      "descricao": "Cerimônia Religiosa"
+    }
+  }
+]
