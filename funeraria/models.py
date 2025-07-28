@@ -26,10 +26,12 @@ def validate_cpf(value):
 
 
 class FuncionarioFuneraria(AbstractUser):
-    """Model para funcionários da funerária (usuários do sistema)"""
+    first_name = models.CharField('Nome', max_length=150, blank=False, null=False)
+    last_name = models.CharField('Sobrenome', max_length=150, blank=False, null=False)
+
     groups = models.ManyToManyField(
         Group,
-        related_name='funcionarios_funeraria',  # <--- nome exclusivo
+        related_name='funcionarios_funeraria',
         blank=True,
         help_text='The groups this user belongs to.',
         verbose_name='groups',
@@ -38,7 +40,7 @@ class FuncionarioFuneraria(AbstractUser):
 
     user_permissions = models.ManyToManyField(
         Permission,
-        related_name='funcionarios_funeraria',  # <--- nome exclusivo
+        related_name='funcionarios_funeraria',
         blank=True,
         help_text='Specific permissions for this user.',
         verbose_name='user permissions',
@@ -80,7 +82,6 @@ class FunerariaStatus(models.Model):
     def __str__(self):
         return self.status
 
-
 class DependenteStatus(models.Model):
     """Status específicos para dependentes"""
     status = models.CharField(max_length=50, verbose_name='Status')
@@ -96,12 +97,28 @@ class DependenteStatus(models.Model):
 
 
 class FunerariaTipos(models.Model):
-    """Tipos de serviços oferecidos pela funerária"""
     descricao = models.CharField(max_length=100, verbose_name='Descrição')
+    categoria = models.CharField(
+        max_length=50,
+        choices=[
+            ('plano', 'Plano'),
+            ('servico', 'Serviço'),
+            ('outro', 'Outro'),
+        ],
+        default='outro',
+        verbose_name='Categoria do Tipo'
+    )
     
+    valor = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,      # pode ser null caso não tenha valor (ex: 'outro')
+        blank=True,
+        verbose_name='Valor'
+    )
     class Meta:
-        verbose_name = 'Tipo de Serviço'
-        verbose_name_plural = 'Tipos de Serviços'
+        verbose_name = 'Funerária Tipo'
+        verbose_name_plural = 'Funerária Tipos'
         db_table = 'funeraria_tipos'
     
     def __str__(self):
@@ -110,25 +127,35 @@ class FunerariaTipos(models.Model):
 
 class PlanoFuneraria(models.Model):
     """Planos funerários oferecidos"""
-    TIPO_RENOVACAO_CHOICES = [
-        ('MENSAL', 'Mensal'),
-        ('TRIMESTRAL', 'Trimestral'),
-        ('SEMESTRAL', 'Semestral'),
-        ('ANUAL', 'Anual'),
-    ]
+    tipo_renovacao = models.ForeignKey(
+        'FunerariaTipos',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=False,
+        related_name='planos_com_renovacao',
+        limit_choices_to={
+            'categoria': 'plano',           # só tipos de categoria 'plano'
+            'descricao__startswith': 'Renovação'  # e descrição começando com 'Renovação'
+        },
+        verbose_name='Tipo de Renovação'
+    )
     
     valor_mensal = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         verbose_name='Valor Mensal'
     )
-    tipo_renovacao = models.CharField(
-        max_length=20,
-        choices=TIPO_RENOVACAO_CHOICES,
-        verbose_name='Tipo de Renovação'
-    )
+    
     cobertura = models.TextField(verbose_name='Cobertura')
     data_fim = models.DateField(verbose_name='Data de Fim')
+
+    tipo_plano = models.ForeignKey(
+        'FunerariaTipos',
+        on_delete=models.PROTECT,
+        verbose_name='Tipo do Plano',
+        limit_choices_to={'categoria': 'plano'}  # limita só aos tipos de plano
+    )
+
     plano_status = models.ForeignKey(
         FunerariaStatus,
         on_delete=models.PROTECT,
@@ -155,8 +182,7 @@ class PlanoFuneraria(models.Model):
         db_table = 'plano_funeraria'
     
     def __str__(self):
-        return f"Plano {self.tipo_renovacao} - R$ {self.valor_mensal}"
-
+        return f"Plano {self.tipo_renovacao} - {self.tipo_plano} - R$ {self.valor_mensal}"
 
 class ClienteFuneraria(models.Model):
     """Clientes da funerária"""
@@ -176,7 +202,7 @@ class ClienteFuneraria(models.Model):
     endereco = models.TextField(verbose_name='Endereço')
     email = models.EmailField(verbose_name='E-mail')
     cliente_status = models.ForeignKey(
-        DependenteStatus,
+        FunerariaStatus,
         on_delete=models.PROTECT,
         verbose_name='Status do Cliente'
     )
@@ -239,7 +265,7 @@ class DependenteFuneraria(models.Model):
         verbose_name='Cliente'
     )
     dependente_status = models.ForeignKey(
-        DependenteStatus,
+        FunerariaStatus,
         on_delete=models.PROTECT,
         verbose_name='Status do Dependente'
     )
@@ -330,7 +356,11 @@ class ServicoPrestadoFuneraria(models.Model):
     tipo = models.ForeignKey(
         FunerariaTipos,
         on_delete=models.PROTECT,
-        verbose_name='Tipo de Serviço'
+        verbose_name='Tipo de Serviço',
+        limit_choices_to={
+            'categoria': 'servico',
+            'descricao__icontains': 'serviço'  # inclui tipo que contenha "serviço" (case insensitive)
+        }
     )
     funcionario_criacao = models.ForeignKey(
         FuncionarioFuneraria,
@@ -356,3 +386,49 @@ class ServicoPrestadoFuneraria(models.Model):
     
     def __str__(self):
         return f"{self.tipo.descricao} - {self.cliente.nome} - {self.data_hora_servico.strftime('%d/%m/%Y')}"
+    
+class ClientePlano(models.Model):
+    cliente = models.ForeignKey(
+        ClienteFuneraria,
+        on_delete=models.CASCADE,
+        related_name='cliente_planos',
+        verbose_name='Cliente'
+    )
+    plano = models.ForeignKey(
+        PlanoFuneraria,
+        on_delete=models.PROTECT,
+        related_name='cliente_planos',
+        verbose_name='Plano Funerário'
+    )
+    data_inicio = models.DateField(verbose_name='Data de Início')
+    data_fim = models.DateField(null=True, blank=True, verbose_name='Data de Fim')
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
+
+    funcionario_cadastro = models.ForeignKey(
+        FuncionarioFuneraria,
+        on_delete=models.PROTECT,
+        related_name='cliente_planos_cadastrados',
+        verbose_name='Funcionário que Cadastrou',
+        blank=True,
+        null=True,
+    )
+    funcionario_atualizacao = models.ForeignKey(
+        FuncionarioFuneraria,
+        on_delete=models.PROTECT,
+        related_name='cliente_planos_atualizados',
+        verbose_name='Funcionário que Atualizou',
+        blank=True,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Cliente Plano'
+        verbose_name_plural = 'Clientes Planos'
+        db_table = 'cliente_plano'
+        ordering = ['-data_inicio']
+        unique_together = [('cliente', 'plano', 'data_inicio')]
+
+    def __str__(self):
+        return f"{self.cliente.nome} - {str(self.plano)} ({'Ativo' if self.ativo else 'Inativo'})"

@@ -7,6 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum, Count, Q
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
+from django.utils import timezone
 import csv
 from datetime import datetime, timedelta
 
@@ -31,7 +32,6 @@ class AuthViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'])
     def login(self, request):
-        """Login de funcionários"""
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
@@ -50,7 +50,6 @@ class AuthViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def logout(self, request):
-        """Logout de funcionários"""
         try:
             refresh_token = request.data["refresh"]
             token = RefreshToken(refresh_token)
@@ -61,7 +60,6 @@ class AuthViewSet(viewsets.ViewSet):
 
 
 class FuncionarioFunerariaViewSet(viewsets.ModelViewSet):
-    """ViewSet para funcionários da funerária"""
     queryset = FuncionarioFuneraria.objects.all()
     serializer_class = FuncionarioFunerariaSerializer
     permission_classes = [IsAuthenticated]
@@ -73,7 +71,6 @@ class FuncionarioFunerariaViewSet(viewsets.ModelViewSet):
 
 
 class FunerariaStatusViewSet(viewsets.ModelViewSet):
-    """ViewSet para status da funerária"""
     queryset = FunerariaStatus.objects.all()
     serializer_class = FunerariaStatusSerializer
     permission_classes = [IsAuthenticated]
@@ -83,7 +80,6 @@ class FunerariaStatusViewSet(viewsets.ModelViewSet):
 
 
 class DependenteStatusViewSet(viewsets.ModelViewSet):
-    """ViewSet para status de dependentes"""
     queryset = DependenteStatus.objects.all()
     serializer_class = DependenteStatusSerializer
     permission_classes = [IsAuthenticated]
@@ -93,7 +89,6 @@ class DependenteStatusViewSet(viewsets.ModelViewSet):
 
 
 class FunerariaTiposViewSet(viewsets.ModelViewSet):
-    """ViewSet para tipos de serviços"""
     queryset = FunerariaTipos.objects.all()
     serializer_class = FunerariaTiposSerializer
     permission_classes = [IsAuthenticated]
@@ -103,7 +98,6 @@ class FunerariaTiposViewSet(viewsets.ModelViewSet):
 
 
 class PlanoFunerariaViewSet(viewsets.ModelViewSet):
-    """ViewSet para planos funerários"""
     queryset = PlanoFuneraria.objects.select_related(
         'plano_status', 'funcionario_criacao', 'funcionario_atualizacao'
     ).prefetch_related('pagamentos', 'servicos')
@@ -126,19 +120,14 @@ class PlanoFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True)
     def detalhado(self, request, pk=None):
-        """Retorna plano com detalhes de pagamentos e serviços"""
         plano = self.get_object()
         plano_data = PlanoDetalhadoSerializer(plano).data
-        
-        # Calcular total arrecadado
         total = plano.pagamentos.aggregate(total=Sum('valor_pago'))['total'] or 0
         plano_data['total_arrecadado'] = total
-        
         return Response(plano_data)
     
     @action(detail=False)
     def relatorio_financeiro(self, request):
-        """Relatório financeiro dos planos"""
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
         
@@ -168,7 +157,6 @@ class PlanoFunerariaViewSet(viewsets.ModelViewSet):
 
 
 class ClienteFunerariaViewSet(viewsets.ModelViewSet):
-    """ViewSet para clientes da funerária"""
     queryset = ClienteFuneraria.objects.select_related(
         'cliente_status', 'funcionario_cadastro', 'funcionario_atualizacao'
     ).prefetch_related('dependentes', 'servicos')
@@ -191,17 +179,14 @@ class ClienteFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True)
     def detalhado(self, request, pk=None):
-        """Retorna cliente com dependentes e serviços"""
         cliente = self.get_object()
         return Response(ClienteDetalhadoSerializer(cliente).data)
     
     @action(detail=False, methods=['get'])
     def buscar_cpf(self, request):
-        """Busca cliente por CPF"""
         cpf = request.query_params.get('cpf')
         if not cpf:
             return Response({'error': 'CPF é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
-        
         try:
             cliente = ClienteFuneraria.objects.get(cpf=cpf)
             return Response(ClienteDetalhadoSerializer(cliente).data)
@@ -210,7 +195,6 @@ class ClienteFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False)
     def exportar_csv(self, request):
-        """Exporta clientes em CSV"""
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="clientes.csv"'
         
@@ -231,7 +215,6 @@ class ClienteFunerariaViewSet(viewsets.ModelViewSet):
 
 
 class DependenteFunerariaViewSet(viewsets.ModelViewSet):
-    """ViewSet para dependentes dos clientes"""
     queryset = DependenteFuneraria.objects.select_related(
         'cliente', 'dependente_status', 'funcionario_criacao', 'funcionario_atualizacao'
     )
@@ -254,7 +237,6 @@ class DependenteFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def por_cliente(self, request):
-        """Lista dependentes por cliente"""
         cliente_id = request.query_params.get('cliente_id')
         if not cliente_id:
             return Response({'error': 'cliente_id é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
@@ -265,7 +247,6 @@ class DependenteFunerariaViewSet(viewsets.ModelViewSet):
 
 
 class PagamentoFunerariaViewSet(viewsets.ModelViewSet):
-    """ViewSet para pagamentos dos planos"""
     queryset = PagamentoFuneraria.objects.select_related(
         'plano_funeraria', 'status_pagamento'
     )
@@ -279,7 +260,6 @@ class PagamentoFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False)
     def historico_plano(self, request):
-        """Histórico de pagamentos por plano"""
         plano_id = request.query_params.get('plano_id')
         if not plano_id:
             return Response({'error': 'plano_id é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
@@ -287,7 +267,6 @@ class PagamentoFunerariaViewSet(viewsets.ModelViewSet):
         pagamentos = self.get_queryset().filter(plano_funeraria_id=plano_id)
         serializer = self.get_serializer(pagamentos, many=True)
         
-        # Calcular totais
         total_pago = pagamentos.aggregate(total=Sum('valor_pago'))['total'] or 0
         
         return Response({
@@ -298,7 +277,6 @@ class PagamentoFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False)
     def relatorio_periodo(self, request):
-        """Relatório de pagamentos por período"""
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
         
@@ -309,7 +287,6 @@ class PagamentoFunerariaViewSet(viewsets.ModelViewSet):
         if data_fim:
             queryset = queryset.filter(data_hora_pagto__lte=parse_date(data_fim))
         
-        # Agrupar por forma de pagamento
         formas_pagamento = queryset.values('forma_pagamento').annotate(
             total=Sum('valor_pago'),
             quantidade=Count('id')
@@ -328,7 +305,6 @@ class PagamentoFunerariaViewSet(viewsets.ModelViewSet):
 
 
 class ServicoPrestadoFunerariaViewSet(viewsets.ModelViewSet):
-    """ViewSet para serviços prestados"""
     queryset = ServicoPrestadoFuneraria.objects.select_related(
         'cliente', 'plano', 'tipo', 'funcionario_criacao', 'funcionario_atualizacao'
     )
@@ -341,17 +317,39 @@ class ServicoPrestadoFunerariaViewSet(viewsets.ModelViewSet):
     ordering = ['-data_hora_servico']
     
     def perform_create(self, serializer):
-        serializer.save(
+        cliente = serializer.validated_data.get('cliente')
+        
+        plano = None
+        if cliente:
+            plano = PlanoFuneraria.objects.filter(
+                cliente=cliente,
+                plano_status__status='Ativo'
+            ).first()
+        
+        servico = serializer.save(
             funcionario_criacao=self.request.user,
-            funcionario_atualizacao=self.request.user
+            funcionario_atualizacao=self.request.user,
+            data_hora_servico=timezone.now(),
+            plano=plano
         )
+        
+        tipo_servico = servico.tipo
+        if tipo_servico.valor and tipo_servico.valor > 0:
+            status_pendente = FunerariaStatus.objects.get(status='Pendente')
+            PagamentoFuneraria.objects.create(
+                valor_pago=tipo_servico.valor,
+                data_hora_pagto=timezone.now(),
+                forma_pagamento='PIX',
+                plano_funeraria=plano,
+                status_pagamento=status_pendente,
+                created_at=timezone.now()
+            )
     
     def perform_update(self, serializer):
         serializer.save(funcionario_atualizacao=self.request.user)
     
     @action(detail=False)
     def por_cliente(self, request):
-        """Serviços prestados por cliente"""
         cliente_id = request.query_params.get('cliente_id')
         if not cliente_id:
             return Response({'error': 'cliente_id é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
@@ -362,7 +360,6 @@ class ServicoPrestadoFunerariaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False)
     def relatorio_tipos(self, request):
-        """Relatório de serviços por tipo"""
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
         
@@ -373,7 +370,6 @@ class ServicoPrestadoFunerariaViewSet(viewsets.ModelViewSet):
         if data_fim:
             queryset = queryset.filter(data_hora_servico__lte=parse_date(data_fim))
         
-        # Agrupar por tipo de serviço
         tipos_servico = queryset.values(
             'tipo__id', 'tipo__descricao'
         ).annotate(
@@ -391,26 +387,21 @@ class ServicoPrestadoFunerariaViewSet(viewsets.ModelViewSet):
 
 
 class DashboardViewSet(viewsets.ViewSet):
-    """ViewSet para dashboard com estatísticas gerais"""
     permission_classes = [IsAuthenticated]
     
     @action(detail=False)
     def estatisticas(self, request):
-        """Estatísticas gerais do sistema"""
         hoje = datetime.now().date()
         inicio_mes = hoje.replace(day=1)
         
-        # Contadores gerais
         total_clientes = ClienteFuneraria.objects.count()
         total_dependentes = DependenteFuneraria.objects.count()
         total_planos = PlanoFuneraria.objects.count()
         
-        # Serviços do mês
         servicos_mes = ServicoPrestadoFuneraria.objects.filter(
             data_hora_servico__gte=inicio_mes
         ).count()
         
-        # Pagamentos do mês
         pagamentos_mes = PagamentoFuneraria.objects.filter(
             data_hora_pagto__gte=inicio_mes
         )
@@ -418,7 +409,6 @@ class DashboardViewSet(viewsets.ViewSet):
             total=Sum('valor_pago')
         )['total'] or 0
         
-        # Clientes por status
         clientes_por_status = ClienteFuneraria.objects.values(
             'cliente_status__status'
         ).annotate(quantidade=Count('id'))
@@ -436,5 +426,3 @@ class DashboardViewSet(viewsets.ViewSet):
             },
             'clientes_por_status': list(clientes_por_status)
         })
-        
-    
