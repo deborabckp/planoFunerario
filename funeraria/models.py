@@ -103,9 +103,9 @@ class FunerariaTipos(models.Model):
         choices=[
             ('plano', 'Plano'),
             ('servico', 'Serviço'),
-            ('outro', 'Outro'),
+            ('renovacao', 'Renovação'),
         ],
-        default='outro',
+        default='plano',
         verbose_name='Categoria do Tipo'
     )
     
@@ -127,33 +127,37 @@ class FunerariaTipos(models.Model):
 
 class PlanoFuneraria(models.Model):
     """Planos funerários oferecidos"""
+
     tipo_renovacao = models.ForeignKey(
         'FunerariaTipos',
         on_delete=models.SET_NULL,
         null=True,
-        blank=False,
+        blank=True,
         related_name='planos_com_renovacao',
         limit_choices_to={
-            'categoria': 'plano',           # só tipos de categoria 'plano'
-            'descricao__startswith': 'Renovação'  # e descrição começando com 'Renovação'
+            'categoria': 'renovacao'
         },
         verbose_name='Tipo de Renovação'
     )
-    
+
     valor_mensal = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         verbose_name='Valor Mensal'
     )
-    
+
     cobertura = models.TextField(verbose_name='Cobertura')
+
     data_fim = models.DateField(verbose_name='Data de Fim')
 
     tipo_plano = models.ForeignKey(
         'FunerariaTipos',
         on_delete=models.PROTECT,
         verbose_name='Tipo do Plano',
-        limit_choices_to={'categoria': 'plano'}  # limita só aos tipos de plano
+        limit_choices_to={
+            'categoria': 'plano'
+        },
+        related_name='planos_funerarios'
     )
 
     plano_status = models.ForeignKey(
@@ -161,28 +165,32 @@ class PlanoFuneraria(models.Model):
         on_delete=models.PROTECT,
         verbose_name='Status do Plano'
     )
+
     funcionario_criacao = models.ForeignKey(
         FuncionarioFuneraria,
         on_delete=models.PROTECT,
         related_name='planos_criados',
         verbose_name='Funcionário que Criou'
     )
+
     funcionario_atualizacao = models.ForeignKey(
         FuncionarioFuneraria,
         on_delete=models.PROTECT,
         related_name='planos_atualizados',
         verbose_name='Funcionário que Atualizou'
     )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = 'Plano Funerário'
         verbose_name_plural = 'Planos Funerários'
         db_table = 'plano_funeraria'
-    
+
     def __str__(self):
-        return f"Plano {self.tipo_renovacao} - {self.tipo_plano} - R$ {self.valor_mensal}"
+        return f"Plano {self.tipo_plano} - Renovação: {self.tipo_renovacao or 'N/A'} - R$ {self.valor_mensal}"
+
 
 class ClienteFuneraria(models.Model):
     """Clientes da funerária"""
