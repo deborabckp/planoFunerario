@@ -172,12 +172,12 @@ python manage.py runserver
 ```
 
 ## Melhorias Futuras
-- [ ] Dashboard com gráficos interativos
-- [ ] Notificações por email
-- [ ] Relatórios em PDF
-- [ ] API para aplicativo mobile
-- [ ] Backup automático
-- [ ] Logs de auditoria
+- Dashboard com gráficos interativos
+- Notificações por email
+- Relatórios em PDF
+- API para aplicativo mobile
+- Backup automático
+- Logs de auditoria
 
 ## Observações Acadêmicas
 Este projeto foi desenvolvido para a disciplina de **Engenharia de Software**, com foco em:
