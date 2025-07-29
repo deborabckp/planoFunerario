@@ -1,17 +1,17 @@
 # Sistema de Gerenciamento de Planos Funerários
 
-## 📋 Descrição
+## Descrição
 Sistema web completo desenvolvido em Django e Django REST Framework para gerenciamento de planos funerários, voltado para uso exclusivo de funcionários da funerária.
 
-## 🚀 Tecnologias Utilizadas
+## Tecnologias Utilizadas
 - **Backend**: Django 4.2.7, Django REST Framework 3.14.0
 - **Banco de Dados**: PostgreSQL
 - **Autenticação**: JWT (Simple JWT)
 - **Documentação**: Swagger/OpenAPI (via DRF)
 
-## 🏗️ Estrutura do Projeto
+## Estrutura do Projeto
 
-### 📊 Entidades Principais
+### Entidades Principais
 - **Funcionários da Funerária** (usuários do sistema)
 - **Clientes da Funerária**
 - **Dependentes dos Clientes**
@@ -20,12 +20,12 @@ Sistema web completo desenvolvido em Django e Django REST Framework para gerenci
 - **Serviços Prestados**
 - **Status e Tipos de Serviços**
 
-### 🔐 Sistema de Autenticação
+### Sistema de Autenticação
 - Login/logout com JWT
 - Apenas funcionários autenticados têm acesso
 - Controle de permissões por endpoint
 
-## ⚙️ Configuração e Instalação
+## Configuração e Instalação
 
 ### 1. Pré-requisitos
 ```bash
@@ -57,14 +57,14 @@ python scripts/setup_database.py
 python manage.py runserver
 ```
 
-## 🌐 Endpoints da API
+## Endpoints da API
 
-### 🔑 Autenticação
+### Autenticação
 - `POST /api/auth/login/` - Login de funcionários
 - `POST /api/auth/logout/` - Logout
 - `POST /api/token/refresh/` - Renovar token JWT
 
-### 👥 Gestão de Entidades
+### Gestão de Entidades
 - `GET|POST /api/funcionarios/` - Listar/Criar funcionários
 - `GET|PUT|DELETE /api/funcionarios/{id}/` - Detalhar/Atualizar/Excluir funcionário
 
@@ -88,15 +88,12 @@ python manage.py runserver
 - `GET /api/servicos/por_cliente/?cliente_id=1` - Serviços por cliente
 - `GET /api/servicos/relatorio_tipos/` - Relatório por tipos
 
-### 📊 Dashboard e Relatórios
-- `GET /api/dashboard/estatisticas/` - Estatísticas gerais do sistema
-
-### ⚙️ Configurações
+### Configurações
 - `GET|POST /api/status/` - Status do sistema
 - `GET|POST /api/dependente-status/` - Status de dependentes
 - `GET|POST /api/tipos-servicos/` - Tipos de serviços
 
-## 💻 Interface Administrativa
+## Interface Administrativa
 
 ### Django Admin Customizado
 - Acesso: `http://localhost:8000/admin/`
@@ -109,33 +106,33 @@ python manage.py runserver
 - Relatórios inline (dependentes nos clientes)
 - Interface personalizada para funerária
 
-## 🔍 Funcionalidades Avançadas
+## Funcionalidades Avançadas
 
-### ✅ Validações Implementadas
+### Validações Implementadas
 - **Validação de CPF**: Algoritmo completo de validação
 - **CPFs únicos**: Não permite duplicatas no sistema
 - **Validação de telefone**: Formato brasileiro
 - **Integridade referencial**: Relacionamentos FK protegidos
 
-### 📄 Filtros e Buscas
+### Filtros e Buscas
 - **Filtros por data**: Criação, nascimento, serviços
 - **Busca textual**: Nome, CPF, email, telefone
 - **Filtros por status**: Todos os tipos de status
 - **Ordenação**: Por múltiplos campos
 
-### 📊 Relatórios e Exportações
+### Relatórios e Exportações
 - **CSV de clientes**: Exportação completa
 - **Relatórios financeiros**: Por período e plano
 - **Estatísticas do dashboard**: Contadores e totais
 - **Histórico de pagamentos**: Por plano e período
 
-### 🔐 Segurança
+### Segurança
 - **Autenticação JWT**: Tokens seguros
 - **Permissões por endpoint**: Apenas autenticados
 - **Controle de usuários**: Quem criou/atualizou registros
 - **Validações de backend**: Dados consistentes
 
-## 📋 Dados Iniciais (Fixtures)
+## Dados Iniciais (Fixtures)
 
 ### Status do Sistema
 - Ativo, Inativo, Pendente, Pago, Cancelado
@@ -148,7 +145,7 @@ python manage.py runserver
 - Traslado, Embalsamento, Ornamentação Floral
 - Cerimônia Religiosa
 
-## 🎯 Casos de Uso Principais
+## Casos de Uso Principais
 
 ### 1. Cadastro de Cliente com Dependentes
 ```python
@@ -174,7 +171,7 @@ python manage.py runserver
 # 4. Histórico fica disponível para consulta
 ```
 
-## 📈 Melhorias Futuras
+## Melhorias Futuras
 - [ ] Dashboard com gráficos interativos
 - [ ] Notificações por email
 - [ ] Relatórios em PDF
@@ -182,7 +179,7 @@ python manage.py runserver
 - [ ] Backup automático
 - [ ] Logs de auditoria
 
-## 🎓 Observações Acadêmicas
+## Observações Acadêmicas
 Este projeto foi desenvolvido para a disciplina de **Engenharia de Software**, com foco em:
 - Arquitetura de software bem estruturada
 - Modelagem de banco de dados
@@ -193,4 +190,4 @@ Este projeto foi desenvolvido para a disciplina de **Engenharia de Software**, c
 
 ---
 
-**Desenvolvido com ❤️ para o curso de Engenharia de Software**
+**Desenvolvido com ❤️ para a Dsiciplina de Engenharia de Software**
