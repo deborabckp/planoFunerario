@@ -3,7 +3,8 @@ from django.contrib.auth.admin import UserAdmin
 from .models import (
     FuncionarioFuneraria, ClienteFuneraria, DependenteFuneraria,
     PlanoFuneraria, PagamentoFuneraria, ServicoPrestadoFuneraria,
-    FunerariaStatus, FunerariaTipos, DependenteStatus, ClientePlano
+    FunerariaStatus, FunerariaTipos, DependenteStatus, ClientePlano,
+    FormaPagamento # Adicionado FormaPagamento aqui
 )
 
 
@@ -32,8 +33,9 @@ class FuncionarioFunerariaAdmin(UserAdmin):
 
 @admin.register(FunerariaStatus)
 class FunerariaStatusAdmin(admin.ModelAdmin):
-    list_display = ('status', 'descricao')
-    search_fields = ('status',)
+    list_display = ('status', 'descricao', 'categoria') # Adicionado categoria para melhor visualização
+    list_filter = ('categoria',) # Filtro por categoria
+    search_fields = ('status', 'descricao')
     ordering = ('status',)
 
 
@@ -46,20 +48,26 @@ class DependenteStatusAdmin(admin.ModelAdmin):
 
 @admin.register(FunerariaTipos)
 class FunerariaTiposAdmin(admin.ModelAdmin):
-    list_display = ('descricao', 'categoria')
+    list_display = ('descricao', 'categoria', 'valor', 'duracao_em_dias') # Adicionado duracao_em_dias
+    list_filter = ('categoria',)
     search_fields = ('descricao',)
     ordering = ('descricao',)
-
+    
+    fieldsets = (
+        (None, {
+            'fields': ('descricao', 'categoria', 'valor', 'duracao_em_dias') # Adicionado duracao_em_dias aqui
+        }),
+    )
 
 @admin.register(PlanoFuneraria)
 class PlanoFunerariaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'tipo_renovacao', 'valor_mensal', 'data_fim', 'plano_status', 'created_at')
-    list_filter = ('tipo_renovacao', 'plano_status', 'created_at')
-    search_fields = ('cobertura',)
+    list_display = ('id', 'tipo_plano', 'valor_mensal', 'data_fim', 'plano_status', 'created_at') # 'tipo_renovacao' é opcional
+    list_filter = ('tipo_plano', 'plano_status', 'created_at') # Filtro por tipo_plano
+    search_fields = ('cobertura', 'tipo_plano__descricao') # Adicionado busca por descrição do tipo de plano
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
 
-    autocomplete_fields = ('tipo_plano', 'plano_status', 'funcionario_criacao', 'funcionario_atualizacao')
+    autocomplete_fields = ('tipo_plano', 'plano_status', 'funcionario_criacao', 'funcionario_atualizacao', 'tipo_renovacao') # Adicionado tipo_renovacao
 
     fieldsets = (
         ('Informações do Plano', {
@@ -70,19 +78,20 @@ class PlanoFunerariaAdmin(admin.ModelAdmin):
         }),
     )
 
-
 class ClientePlanoInline(admin.TabularInline):
     model = ClientePlano
     extra = 1
-    autocomplete_fields = ['plano', 'funcionario_cadastro', 'funcionario_atualizacao']
-    fields = ['plano', 'data_inicio', 'ativo']
-
+    autocomplete_fields = ['plano']
+    fields = ['plano', 'data_inicio', 'data_fim', 'ativo'] # Adicionado data_fim para gerenciamento in-line
 
 class DependenteFunerariaInline(admin.TabularInline):
     model = DependenteFuneraria
     extra = 0
-    readonly_fields = ('created_at', 'updated_at')
-    autocomplete_fields = ['cliente', 'funcionario_criacao', 'funcionario_atualizacao']
+    # Removido readonly_fields para permitir edição de campos como telefone, endereco
+    # Se quiser que todos sejam readonly no inline, especifique-os explicitamente
+    fields = ['nome', 'cpf', 'data_nascimento', 'genero', 'telefone', 'endereco', 'dependente_status']
+    autocomplete_fields = ['dependente_status'] # Mantido autocomplete para status
+    # Note: 'cliente', 'funcionario_criacao', 'funcionario_atualizacao' são preenchidos automaticamente pelo cliente principal ou pela criação/atualização.
 
 
 @admin.register(ClienteFuneraria)
@@ -135,29 +144,35 @@ class DependenteFunerariaAdmin(admin.ModelAdmin):
         }),
     )
 
+@admin.register(FormaPagamento)
+class FormaPagamentoAdmin(admin.ModelAdmin):
+    list_display = ('descricao', 'categoria')
+    list_filter = ('categoria',)
+    search_fields = ('descricao',)
+    ordering = ('descricao',)
+
 
 @admin.register(PagamentoFuneraria)
 class PagamentoFunerariaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'valor_pago', 'data_hora_pagto', 'forma_pagamento', 'plano_funeraria', 'status_pagamento')
-    list_filter = ('forma_pagamento', 'status_pagamento', 'data_hora_pagto', 'created_at')
-    search_fields = ('plano_funeraria__id', 'valor_pago')
+    list_display = ('id', 'valor_pago', 'data_hora_pagto', 'status_pagamento', 'plano_funeraria', 'created_at')
+    list_filter = ('status_pagamento', 'data_hora_pagto')
+    search_fields = ('status_pagamento__status', 'plano_funeraria__id')
     ordering = ('-data_hora_pagto',)
     readonly_fields = ('created_at',)
 
-    autocomplete_fields = ('plano_funeraria', 'status_pagamento')
+    autocomplete_fields = ('status_pagamento', 'plano_funeraria') # Adicionado plano_funeraria para autocomplete
 
     fieldsets = (
         ('Informações do Pagamento', {
-            'fields': ('valor_pago', 'data_hora_pagto', 'forma_pagamento')
+            'fields': ('valor_pago', 'data_hora_pagto', 'status_pagamento')
         }),
         ('Relacionamento', {
-            'fields': ('plano_funeraria', 'status_pagamento')
+            'fields': ('plano_funeraria',)
         }),
         ('Controle', {
             'fields': ('created_at',)
         }),
     )
-
 
 @admin.register(ServicoPrestadoFuneraria)
 class ServicoPrestadoFunerariaAdmin(admin.ModelAdmin):

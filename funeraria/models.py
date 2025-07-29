@@ -3,7 +3,9 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 import re
+from datetime import timedelta
 
 
 def validate_cpf(value):
@@ -70,17 +72,28 @@ class FuncionarioFuneraria(AbstractUser):
 
 
 class FunerariaStatus(models.Model):
-    """Status gerais do sistema"""
+    CATEGORIA_CHOICES = [
+        ('cliente', 'Cliente'),
+        ('pagamento', 'Pagamento'),
+    ]
+
     status = models.CharField(max_length=50, verbose_name='Status')
     descricao = models.TextField(verbose_name='Descrição')
-    
+    categoria = models.CharField(
+        max_length=20,
+        choices=CATEGORIA_CHOICES,
+        verbose_name='Categoria',
+        help_text='Categoria a qual o status pertence: cliente ou pagamento'
+    )
+
     class Meta:
         verbose_name = 'Status'
         verbose_name_plural = 'Status'
         db_table = 'funeraria_status'
-    
+
     def __str__(self):
-        return self.status
+        return f"{self.status} ({self.categoria})"
+
 
 class DependenteStatus(models.Model):
     """Status específicos para dependentes"""
@@ -95,6 +108,8 @@ class DependenteStatus(models.Model):
     def __str__(self):
         return self.status
 
+
+# Em models.py
 
 class FunerariaTipos(models.Model):
     descricao = models.CharField(max_length=100, verbose_name='Descrição')
@@ -112,10 +127,18 @@ class FunerariaTipos(models.Model):
     valor = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        null=True,      # pode ser null caso não tenha valor (ex: 'outro')
+        null=True,
         blank=True,
         verbose_name='Valor'
     )
+    # NOVO CAMPO: Duração em dias para tipos de renovação
+    duracao_em_dias = models.IntegerField(
+        verbose_name='Duração em Dias (para Renovação)',
+        null=True,
+        blank=True,
+        help_text='Quantos dias este tipo de renovação adiciona ao plano (somente para categoria "renovacao").'
+    )
+
     class Meta:
         verbose_name = 'Funerária Tipo'
         verbose_name_plural = 'Funerária Tipos'
@@ -123,6 +146,11 @@ class FunerariaTipos(models.Model):
     
     def __str__(self):
         return self.descricao
+
+    def clean(self):
+        super().clean()
+        if self.categoria != 'renovacao' and self.duracao_em_dias is not None:
+            raise ValidationError({'duracao_em_dias': 'Duração em dias só pode ser definida para categorias de "renovacao".'})
 
 
 class PlanoFuneraria(models.Model):
@@ -148,7 +176,11 @@ class PlanoFuneraria(models.Model):
 
     cobertura = models.TextField(verbose_name='Cobertura')
 
-    data_fim = models.DateField(verbose_name='Data de Fim')
+    data_fim = models.DateField(
+        verbose_name='Data de Fim',
+        null=True,   # Permite que o campo seja NULL no banco de dados
+        blank=True   # Permite que o campo seja vazio no formulário
+    )
 
     tipo_plano = models.ForeignKey(
         'FunerariaTipos',
@@ -212,7 +244,8 @@ class ClienteFuneraria(models.Model):
     cliente_status = models.ForeignKey(
         FunerariaStatus,
         on_delete=models.PROTECT,
-        verbose_name='Status do Cliente'
+        verbose_name='Status do Cliente',
+        limit_choices_to={'categoria': 'cliente'}
     )
     funcionario_cadastro = models.ForeignKey(
         FuncionarioFuneraria,
@@ -237,6 +270,10 @@ class ClienteFuneraria(models.Model):
     def __str__(self):
         return f"{self.nome} - {self.cpf}"
 
+    def clean(self):
+        super().clean() # Chamada ao clean do modelo pai
+        if self.data_nascimento and self.data_nascimento > timezone.now().date():
+            raise ValidationError({'data_nascimento': 'A data de nascimento não pode ser no futuro.'})
 
 class DependenteFuneraria(models.Model):
     """Dependentes dos clientes"""
@@ -273,7 +310,7 @@ class DependenteFuneraria(models.Model):
         verbose_name='Cliente'
     )
     dependente_status = models.ForeignKey(
-        FunerariaStatus,
+        DependenteStatus, # Corrigido para DependenteStatus
         on_delete=models.PROTECT,
         verbose_name='Status do Dependente'
     )
@@ -300,48 +337,65 @@ class DependenteFuneraria(models.Model):
     def __str__(self):
         return f"{self.nome} - Dependente de {self.cliente.nome}"
 
+    def clean(self):
+        super().clean() # Chamada ao clean do modelo pai
+        if self.data_nascimento and self.data_nascimento > timezone.now().date():
+            raise ValidationError({'data_nascimento': 'A data de nascimento não pode ser no futuro.'})
+    
+
+class FormaPagamento(models.Model):
+    """Formas de pagamento disponíveis"""
+    descricao = models.CharField(max_length=100, verbose_name='Descrição')
+    categoria = models.CharField(
+        max_length=20,
+        verbose_name='Categoria',
+        default='pagamento',
+        help_text='Categoria da forma de pagamento'
+    )
+
+    class Meta:
+        verbose_name = 'Forma de Pagamento'
+        verbose_name_plural = 'Formas de Pagamento'
+        db_table = 'forma_pagamento'
+
+    def __str__(self):
+        return self.descricao
+
 
 class PagamentoFuneraria(models.Model):
     """Pagamentos dos planos funerários"""
-    FORMA_PAGAMENTO_CHOICES = [
-        ('DINHEIRO', 'Dinheiro'),
-        ('CARTAO_CREDITO', 'Cartão de Crédito'),
-        ('CARTAO_DEBITO', 'Cartão de Débito'),
-        ('TRANSFERENCIA', 'Transferência Bancária'),
-        ('PIX', 'PIX'),
-        ('BOLETO', 'Boleto Bancário'),
-    ]
-    
+
+    # O status_pagamento vai filtrar todos os registros da categoria 'pagamento'
+    status_pagamento = models.ForeignKey(
+        FunerariaStatus,
+        on_delete=models.PROTECT,
+        verbose_name='Status do Pagamento',
+        limit_choices_to={'categoria': 'pagamento'},  # Filtrando apenas os statuses com categoria 'pagamento'
+    )
+
     valor_pago = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         verbose_name='Valor Pago'
     )
+
     data_hora_pagto = models.DateTimeField(verbose_name='Data/Hora do Pagamento')
-    forma_pagamento = models.CharField(
-        max_length=20,
-        choices=FORMA_PAGAMENTO_CHOICES,
-        verbose_name='Forma de Pagamento'
-    )
+
     plano_funeraria = models.ForeignKey(
         PlanoFuneraria,
         on_delete=models.PROTECT,
         related_name='pagamentos',
         verbose_name='Plano Funerário'
     )
-    status_pagamento = models.ForeignKey(
-        FunerariaStatus,
-        on_delete=models.PROTECT,
-        verbose_name='Status do Pagamento'
-    )
+
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         verbose_name = 'Pagamento'
         verbose_name_plural = 'Pagamentos'
         db_table = 'pagamento_funeraria'
         ordering = ['-data_hora_pagto']
-    
+
     def __str__(self):
         return f"Pagamento R$ {self.valor_pago} - {self.data_hora_pagto.strftime('%d/%m/%Y')}"
 
@@ -367,7 +421,7 @@ class ServicoPrestadoFuneraria(models.Model):
         verbose_name='Tipo de Serviço',
         limit_choices_to={
             'categoria': 'servico',
-            'descricao__icontains': 'serviço'  # inclui tipo que contenha "serviço" (case insensitive)
+            'descricao__icontains': 'serviço'
         }
     )
     funcionario_criacao = models.ForeignKey(
@@ -394,49 +448,99 @@ class ServicoPrestadoFuneraria(models.Model):
     
     def __str__(self):
         return f"{self.tipo.descricao} - {self.cliente.nome} - {self.data_hora_servico.strftime('%d/%m/%Y')}"
-    
+
+
 class ClientePlano(models.Model):
     cliente = models.ForeignKey(
         ClienteFuneraria,
         on_delete=models.CASCADE,
-        related_name='cliente_planos',
+        related_name='planos_cliente',
         verbose_name='Cliente'
     )
     plano = models.ForeignKey(
         PlanoFuneraria,
-        on_delete=models.PROTECT,
-        related_name='cliente_planos',
-        verbose_name='Plano Funerário'
+        on_delete=models.CASCADE,
+        related_name='clientes_plano',
+        verbose_name='Plano'
     )
     data_inicio = models.DateField(verbose_name='Data de Início')
-    data_fim = models.DateField(null=True, blank=True, verbose_name='Data de Fim')
+    data_fim = models.DateField(verbose_name='Data de Fim', blank=True, null=True) # Pode ser null/blank se for calculado
     ativo = models.BooleanField(default=True, verbose_name='Ativo')
-
-    funcionario_cadastro = models.ForeignKey(
-        FuncionarioFuneraria,
-        on_delete=models.PROTECT,
-        related_name='cliente_planos_cadastrados',
-        verbose_name='Funcionário que Cadastrou',
-        blank=True,
-        null=True,
-    )
-    funcionario_atualizacao = models.ForeignKey(
-        FuncionarioFuneraria,
-        on_delete=models.PROTECT,
-        related_name='cliente_planos_atualizados',
-        verbose_name='Funcionário que Atualizou',
-        blank=True,
-        null=True,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+    
     class Meta:
         verbose_name = 'Cliente Plano'
         verbose_name_plural = 'Clientes Planos'
         db_table = 'cliente_plano'
-        ordering = ['-data_inicio']
-        unique_together = [('cliente', 'plano', 'data_inicio')]
+        unique_together = ('cliente', 'plano')
+    
+    def __str__(self):
+        return f"{self.cliente.nome} - {self.plano.tipo_plano.descricao}"
+    
+    def clean(self):
+        super().clean() # Chamada ao clean do modelo pai
+
+        # Lógica para calcular data_fim com base no tipo de renovação do plano
+        if self.data_inicio and self.plano and self.plano.tipo_renovacao:
+            duracao = self.plano.tipo_renovacao.duracao_em_dias
+            if duracao is not None:
+                self.data_fim = self.data_inicio + timedelta(days=duracao)
+            else:
+                # Se o tipo de renovação não tiver duração definida, pode exigir a data_fim manual
+                # Ou levantar um erro se a duração for obrigatória para o tipo de renovação
+                if not self.data_fim: # Se não foi preenchida, avisar que é obrigatória
+                    raise ValidationError({'data_fim': 'A data de fim é obrigatória ou o tipo de renovação do plano deve ter uma duração definida.'})
+
+        # Suas validações existentes
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError({'data_fim': 'A data de fim não pode ser anterior à data de início.'})
+
+        # A validação de data_fim no futuro precisa ser ponderada
+        # Se a data de fim for calculada para o futuro (e.g., planos anuais),
+        # esta validação pode não ser desejada para _novos_ registros.
+        # Ela seria mais útil para atualizações de planos já vencidos.
+        # Por enquanto, vou mantê-la como estava:
+        # if self.data_fim and self.data_fim > timezone.now().date():
+        #     raise ValidationError({'data_fim': 'A data de fim não pode ser no futuro.'})
+        # Se o plano é para ter duração futura, remova ou ajuste essa validação.
+        # Para planos de cliente, é comum que a data de fim seja no futuro.
+        # Recomendo remover essa validação específica para ClientePlano.
+        # Ou ajustá-la para considerar que a data calculada pode ser no futuro.
+        # Exemplo: só validar se a data de fim não é no futuro APÓS a data de hoje.
+        if self.data_fim and self.data_fim < timezone.now().date() and self.ativo:
+             # Isso validaria se um plano ativo não tem data de fim no passado (já expirado)
+             pass # Você pode adicionar uma validação mais específica aqui se quiser.
+
+
+class ClienteDependentePlano(models.Model):
+    dependente = models.ForeignKey(
+        DependenteFuneraria,
+        on_delete=models.CASCADE,
+        related_name='planos_dependente',
+        verbose_name='Dependente'
+    )
+    plano = models.ForeignKey(
+        PlanoFuneraria,
+        on_delete=models.CASCADE,
+        related_name='dependentes_plano',
+        verbose_name='Plano'
+    )
+    data_inicio = models.DateField(verbose_name='Data de Início')
+    data_fim = models.DateField(verbose_name='Data de Fim')
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
+
+    class Meta:
+        verbose_name = 'Dependente Plano'
+        verbose_name_plural = 'Dependentes Planos'
+        db_table = 'cliente_dependente_plano'
+        unique_together = ('dependente', 'plano')
 
     def __str__(self):
-        return f"{self.cliente.nome} - {str(self.plano)} ({'Ativo' if self.ativo else 'Inativo'})"
+        return f"{self.dependente.nome} - {self.plano.tipo_plano.descricao}"
+
+    def clean(self):
+        super().clean() # Chamada ao clean do modelo pai
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError({'data_fim': 'A data de fim não pode ser anterior à data de início.'})
+
+        if self.data_fim and self.data_fim > timezone.now().date():
+            raise ValidationError({'data_fim': 'A data de fim não pode ser no futuro.'})
